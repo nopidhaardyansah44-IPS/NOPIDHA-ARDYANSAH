@@ -1,0 +1,7 @@
+{
+  "name": "Si-IPS Merdeka - Generator & Administrasi Soal IPS SMP",
+  "description": "Aplikasi lengkap pembuatan soal, kisi-kisi, kartu soal, kunci jawaban, dan norma penilaian IPS SMP Kurikulum Merdeka oleh Nopidha Ardyansah, S.Pd., M.Pd.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

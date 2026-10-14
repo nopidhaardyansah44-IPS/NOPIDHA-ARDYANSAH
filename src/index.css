@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Print Stylesheet for Indonesian Formal School Evaluation Documents (A4) */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 20mm 15mm 20mm 20mm;
+  }
+
+  html, body, #root, main {
+    background: white !important;
+    color: black !important;
+    font-family: 'Lora', 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.45;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide screen-only interactive elements */
+  .no-print,
+  nav,
+  header,
+  footer.app-footer,
+  aside,
+  button,
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Print document container resets */
+  .printable-document {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .printable-document * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Ensure page-break avoids inside questions and cards */
+  .question-item,
+  .kisi-kisi-row,
+  .kartu-soal-card,
+  .rubrik-box,
+  .tanda-tangan-box {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Force vertical multiple choice layout in print */
+  .options-vertical {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+
+  .options-vertical .option-row {
+    display: flex !important;
+    align-items: flex-start !important;
+  }
+
+  /* High contrast borders for tables in print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #000 !important;
+  }
+
+  /* Ensure images print clearly with background */
+  img, svg {
+    max-width: 100% !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+}
+
+/* Screen document preview container simulating realistic A4 paper */
+.a4-preview-page {
+  background-color: white;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm 15mm 20mm 20mm;
+  margin: 0 auto;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 850px) {
+  .a4-preview-page {
+    width: 100%;
+    padding: 16px;
+    min-height: auto;
+  }
+}
