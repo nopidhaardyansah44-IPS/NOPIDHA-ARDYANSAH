@@ -7,7 +7,7 @@ import {
   LearningExperience,
   GradeLevel
 } from '../types';
-import { TEMA_KURIKULUM_IPS } from '../data/kurikulumData';
+import { TEMA_KURIKULUM_IPS, KurikulumTema } from '../data/kurikulumData';
 import { EDUCATIONAL_IMAGES, EducationalImageItem } from '../utils/imageGenerators';
 import {
   Upload,
@@ -22,7 +22,8 @@ import {
   X,
   Layers,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  GraduationCap
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -77,10 +78,176 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onReset,
   isGenerating
 }) => {
+  // Tab filter untuk tampilan daftar tema (Semua, Kls 7, Kls 8, Kls 9)
+  const [temaFilterTab, setTemaFilterTab] = useState<'all' | '7' | '8' | '9'>('all');
+
   if (!isOpen) return null;
 
-  // Filter tema berdasarkan kelas terpilih
-  const currentThemes = TEMA_KURIKULUM_IPS.filter((t) => t.kelas === formState.kelas);
+  // Pastikan selectedTemaIds memiliki nilai default yang valid
+  const selectedIds: string[] =
+    formState.selectedTemaIds && formState.selectedTemaIds.length > 0
+      ? formState.selectedTemaIds
+      : formState.temaId
+      ? [formState.temaId]
+      : ['k7-t1', 'k7-t2', 'k7-t3', 'k7-t4'];
+
+  const selectedCount = selectedIds.length;
+  const isAll12Selected = selectedCount === TEMA_KURIKULUM_IPS.length;
+
+  // Filter daftar tema yang tampil sesuai tab
+  const displayedThemes =
+    temaFilterTab === 'all'
+      ? TEMA_KURIKULUM_IPS
+      : TEMA_KURIKULUM_IPS.filter((t) => t.kelas === temaFilterTab);
+
+  const selectedInGrade = (grade: '7' | '8' | '9') =>
+    selectedIds.filter((id) => {
+      const t = TEMA_KURIKULUM_IPS.find((item) => item.id === id);
+      return t && t.kelas === grade;
+    }).length;
+
+  const isAllSelectedInGrade = (grade: '7' | '8' | '9') =>
+    selectedInGrade(grade) === 4;
+
+  // Helper untuk memperbarui ringkasan topik materi dan tujuan pembelajaran otomatis
+  const updateSummaryText = (newSelectedIds: string[], targetGrade?: GradeLevel) => {
+    const chosenThemes = TEMA_KURIKULUM_IPS.filter((t) => newSelectedIds.includes(t.id));
+    
+    // Tentukan kelas yang tepat
+    let determinedGrade: GradeLevel = targetGrade || formState.kelas;
+    const has7 = chosenThemes.some((t) => t.kelas === '7');
+    const has8 = chosenThemes.some((t) => t.kelas === '8');
+    const has9 = chosenThemes.some((t) => t.kelas === '9');
+
+    if ((has7 && has8) || (has7 && has9) || (has8 && has9) || (has7 && has8 && has9)) {
+      determinedGrade = 'Semua (7, 8, 9)';
+    } else if (has7) {
+      determinedGrade = '7';
+    } else if (has8) {
+      determinedGrade = '8';
+    } else if (has9) {
+      determinedGrade = '9';
+    }
+
+    let topik = '';
+    let tp = '';
+
+    if (newSelectedIds.length === TEMA_KURIKULUM_IPS.length) {
+      topik = 'Seluruh Tema IPS Kurikulum Merdeka (Kelas 7, 8, dan 9 - 12 Tema Lengkap)';
+      tp = 'Menganalisis Capaian Pembelajaran IPS SMP Fase D secara menyeluruh (Keruangan, Interaksi Sosial, Dinamika Kependudukan, Kegiatan Ekonomi, dan Sejarah/Diplomasi).';
+    } else if (chosenThemes.length === 1) {
+      topik = chosenThemes[0].judul;
+      tp = chosenThemes[0].tujuanPembelajaranPreset[0] || chosenThemes[0].capaianPembelajaran;
+    } else if (chosenThemes.length > 1) {
+      const gradeLabels = [has7 ? 'Kls 7' : '', has8 ? 'Kls 8' : '', has9 ? 'Kls 9' : ''].filter(Boolean).join(', ');
+      topik = `Gabungan ${chosenThemes.length} Tema Terpilih IPS SMP (${gradeLabels})`;
+      tp = `Menganalisis capaian pembelajaran terpadu pada tema-tema terpilih: ${chosenThemes.map((t) => t.judul.split(':')[0]).join(', ')}.`;
+    }
+
+    return { determinedGrade, topik, tp };
+  };
+
+  // Handler: Toggle single tema
+  const handleToggleTema = (temaId: string) => {
+    const exists = selectedIds.includes(temaId);
+    let nextIds: string[];
+
+    if (exists) {
+      if (selectedIds.length === 1) return; // Minimal 1 tema aktif
+      nextIds = selectedIds.filter((id) => id !== temaId);
+    } else {
+      nextIds = [...selectedIds, temaId];
+    }
+
+    const { determinedGrade, topik, tp } = updateSummaryText(nextIds);
+
+    setFormState((prev) => ({
+      ...prev,
+      kelas: determinedGrade,
+      selectedTemaIds: nextIds,
+      temaId: nextIds[0],
+      topikMateri: topik,
+      tujuanPembelajaran: tp
+    }));
+  };
+
+  // Handler: Pilih SEMUA 12 tema Kelas 7, 8, dan 9
+  const handleSelectAllThemes = () => {
+    const allIds = TEMA_KURIKULUM_IPS.map((t) => t.id);
+    const { determinedGrade, topik, tp } = updateSummaryText(allIds, 'Semua (7, 8, 9)');
+
+    setFormState((prev) => ({
+      ...prev,
+      kelas: determinedGrade,
+      selectedTemaIds: allIds,
+      temaId: allIds[0],
+      topikMateri: topik,
+      tujuanPembelajaran: tp
+    }));
+  };
+
+  // Handler: Toggle seluruh tema untuk satu kelas tertentu
+  const handleToggleAllInGrade = (grade: '7' | '8' | '9') => {
+    const gradeThemeIds = TEMA_KURIKULUM_IPS.filter((t) => t.kelas === grade).map((t) => t.id);
+    const alreadyAll = isAllSelectedInGrade(grade);
+
+    let nextIds: string[];
+    if (alreadyAll) {
+      // Hapus tema kelas ini kecuali jika itu akan membuat kosong
+      const remaining = selectedIds.filter((id) => !gradeThemeIds.includes(id));
+      nextIds = remaining.length > 0 ? remaining : [gradeThemeIds[0]];
+    } else {
+      // Tambahkan semua tema kelas ini
+      nextIds = Array.from(new Set([...selectedIds, ...gradeThemeIds]));
+    }
+
+    const { determinedGrade, topik, tp } = updateSummaryText(nextIds);
+
+    setFormState((prev) => ({
+      ...prev,
+      kelas: determinedGrade,
+      selectedTemaIds: nextIds,
+      temaId: nextIds[0],
+      topikMateri: topik,
+      tujuanPembelajaran: tp
+    }));
+  };
+
+  // Handler: Ganti Tingkat Kelas di dropdown atas
+  const handleKelasDropdownChange = (newKelas: GradeLevel) => {
+    if (newKelas === 'Semua (7, 8, 9)') {
+      handleSelectAllThemes();
+    } else {
+      // Pilih seluruh tema kelas tersebut
+      const gradeThemeIds = TEMA_KURIKULUM_IPS.filter((t) => t.kelas === newKelas).map((t) => t.id);
+      const { determinedGrade, topik, tp } = updateSummaryText(gradeThemeIds, newKelas);
+
+      setTemaFilterTab(newKelas);
+      setFormState((prev) => ({
+        ...prev,
+        kelas: determinedGrade,
+        selectedTemaIds: gradeThemeIds,
+        temaId: gradeThemeIds[0],
+        topikMateri: topik,
+        tujuanPembelajaran: tp
+      }));
+    }
+  };
+
+  // Handler: Reset pilihan tema
+  const handleResetTemaSelection = () => {
+    const defaultIds = ['k7-t1', 'k7-t2', 'k7-t3', 'k7-t4'];
+    const { determinedGrade, topik, tp } = updateSummaryText(defaultIds, '7');
+    setTemaFilterTab('7');
+    setFormState((prev) => ({
+      ...prev,
+      kelas: determinedGrade,
+      selectedTemaIds: defaultIds,
+      temaId: defaultIds[0],
+      topikMateri: topik,
+      tujuanPembelajaran: tp
+    }));
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -150,29 +317,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
-  const handleKelasChange = (newKelas: GradeLevel) => {
-    const firstTema = TEMA_KURIKULUM_IPS.find((t) => t.kelas === newKelas);
-    setFormState((prev) => ({
-      ...prev,
-      kelas: newKelas,
-      temaId: firstTema ? firstTema.id : prev.temaId,
-      topikMateri: firstTema ? firstTema.judul : prev.topikMateri,
-      tujuanPembelajaran: firstTema ? firstTema.tujuanPembelajaranPreset[0] : prev.tujuanPembelajaran
-    }));
-  };
-
-  const handleTemaChange = (temaId: string) => {
-    const tema = TEMA_KURIKULUM_IPS.find((t) => t.id === temaId);
-    if (tema) {
-      setFormState((prev) => ({
-        ...prev,
-        temaId: tema.id,
-        topikMateri: tema.judul,
-        tujuanPembelajaran: tema.tujuanPembelajaranPreset[0] || tema.capaianPembelajaran
-      }));
-    }
-  };
-
   // Hitung total butir yang akan dibuat
   const totalItems = Object.entries(formState.bentukSoalConfig)
     .filter(([_, cfg]) => cfg.enabled)
@@ -190,7 +334,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div>
               <h2 className="text-lg font-bold">Dasbor Admin & Pengaturan Pembuatan Soal</h2>
               <p className="text-xs text-indigo-200">
-                Mata Pelajaran: Ilmu Pengetahuan Sosial (IPS) Jenjang SMP - Kurikulum Merdeka
+                Mata Pelajaran: Ilmu Pengetahuan Sosial (IPS) Jenjang SMP - Kurikulum Merdeka (Kelas 7, 8, 9)
               </p>
             </div>
           </div>
@@ -328,15 +472,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: Jenjang, Kelas, Tema & Topik Materi / Tujuan Pembelajaran */}
+          {/* SECTION 2: Jenjang, Kelas, Tema (Multi-Select / Pilih Semua) & Topik Materi */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
                 <BookOpen className="w-4 h-4 text-indigo-600" />
-                2. Jenjang Pendidikan & Kurikulum IPS SMP
+                2. Jenjang Pendidikan & Kurikulum IPS SMP (Kelas 7, 8, 9)
               </h3>
               <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                Hanya Jenjang SMP (Fase D)
+                Jenjang SMP (Fase D)
               </span>
             </div>
 
@@ -352,9 +496,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <label className="font-semibold text-slate-700 block mb-1">Tingkat Kelas</label>
                 <select
                   value={formState.kelas}
-                  onChange={(e) => handleKelasChange(e.target.value as GradeLevel)}
+                  onChange={(e) => handleKelasDropdownChange(e.target.value as GradeLevel)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                 >
+                  <option value="Semua (7, 8, 9)">✨ Semua Kelas (Kelas 7, 8, & 9 - Fase D)</option>
                   <option value="7">Kelas VII (Tujuh) SMP</option>
                   <option value="8">Kelas VIII (Delapan) SMP</option>
                   <option value="9">Kelas IX (Sembilan) SMP</option>
@@ -373,48 +518,217 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Pilihan Tema IPS Kurikulum Merdeka (Kelas {formState.kelas}):
-                </label>
-                <select
-                  value={formState.temaId}
-                  onChange={(e) => handleTemaChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-indigo-200 bg-indigo-50/50 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                >
-                  {currentThemes.map((tema) => (
-                    <option key={tema.id} value={tema.id}>
-                      {tema.judul}
-                    </option>
-                  ))}
-                </select>
+            {/* Pilihan Tema Multi-Select: Pengguna Dapat Memilih Sebagian atau Semua Tema Kelas 7, 8, 9 */}
+            <div className="space-y-3 text-xs border border-indigo-200 rounded-xl p-3.5 bg-white shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label className="font-bold text-slate-900 text-sm">
+                      Pilihan Tema IPS Kurikulum Merdeka (Kelas 7, 8, 9):
+                    </label>
+                    <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                      {selectedCount} dari 12 Tema Terpilih
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Centang tema yang diinginkan atau klik tombol <strong>"Pilih Semua Tema (7, 8, 9)"</strong> untuk mencakup seluruh kurikulum SMP.
+                  </p>
+                </div>
+
+                {/* Quick Action Buttons */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllThemes}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                      isAll12Selected
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                    title="Pilih seluruh 12 tema Kurikulum Merdeka kelas 7, 8, dan 9 sekaligus"
+                  >
+                    <CheckSquare className="w-3.5 h-3.5" />
+                    <span>{isAll12Selected ? '✓ Seluruh 12 Tema Terpilih' : '✨ Pilih Semua Tema (7, 8, 9)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetTemaSelection}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors"
+                    title="Kembalikan ke tema default kelas 7"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Reset</span>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Topik atau Materi Spesifik yang Diinginkan:
-                </label>
-                <textarea
-                  rows={2}
-                  value={formState.topikMateri}
-                  onChange={(e) => setFormState({ ...formState, topikMateri: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                  placeholder="Ketik materi yang ingin diujikan (contoh: Keberagaman fauna garis Wallace, circular flow diagram pelaku ekonomi, bonus demografi)..."
-                />
+              {/* Filter Tabs by Grade & Quick Grade Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setTemaFilterTab('all')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      temaFilterTab === 'all'
+                        ? 'bg-white text-indigo-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Semua ({selectedCount}/12)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemaFilterTab('7')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      temaFilterTab === '7'
+                        ? 'bg-white text-indigo-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Kelas VII ({selectedInGrade('7')}/4)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemaFilterTab('8')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      temaFilterTab === '8'
+                        ? 'bg-white text-indigo-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Kelas VIII ({selectedInGrade('8')}/4)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTemaFilterTab('9')}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      temaFilterTab === '9'
+                        ? 'bg-white text-indigo-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Kelas IX ({selectedInGrade('9')}/4)
+                  </button>
+                </div>
+
+                {/* Per-Class Quick Select Toggles */}
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="text-slate-400 hidden md:inline">Pilih per kelas:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllInGrade('7')}
+                    className={`px-2 py-0.5 rounded border font-medium transition-colors ${
+                      isAllSelectedInGrade('7')
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
+                    }`}
+                  >
+                    {isAllSelectedInGrade('7') ? '✓ Semua Kls 7' : '+ Semua Kls 7'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllInGrade('8')}
+                    className={`px-2 py-0.5 rounded border font-medium transition-colors ${
+                      isAllSelectedInGrade('8')
+                        ? 'bg-emerald-600 text-white border-emerald-700'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'
+                    }`}
+                  >
+                    {isAllSelectedInGrade('8') ? '✓ Semua Kls 8' : '+ Semua Kls 8'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAllInGrade('9')}
+                    className={`px-2 py-0.5 rounded border font-medium transition-colors ${
+                      isAllSelectedInGrade('9')
+                        ? 'bg-purple-600 text-white border-purple-700'
+                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200'
+                    }`}
+                  >
+                    {isAllSelectedInGrade('9') ? '✓ Semua Kls 9' : '+ Semua Kls 9'}
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Tujuan Pembelajaran (TP) / Indikator Capaian:
-                </label>
-                <textarea
-                  rows={2}
-                  value={formState.tujuanPembelajaran}
-                  onChange={(e) => setFormState({ ...formState, tujuanPembelajaran: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                  placeholder="Ketik Tujuan Pembelajaran yang ditargetkan..."
-                />
+              {/* Grid of Theme Cards with Checkboxes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1 scrollbar-thin">
+                {displayedThemes.map((tema) => {
+                  const isChecked = selectedIds.includes(tema.id);
+                  const gradeBadgeColor =
+                    tema.kelas === '7'
+                      ? 'bg-blue-100 text-blue-800 border-blue-300'
+                      : tema.kelas === '8'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : 'bg-purple-100 text-purple-800 border-purple-300';
+
+                  return (
+                    <div
+                      key={tema.id}
+                      onClick={() => handleToggleTema(tema.id)}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        isChecked
+                          ? 'bg-indigo-50/70 border-indigo-500 ring-1 ring-indigo-500/30 shadow-xs'
+                          : 'bg-slate-50/70 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className="mt-0.5 flex-shrink-0">
+                          {isChecked ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-600" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${gradeBadgeColor}`}>
+                              Kelas {tema.kelas}
+                            </span>
+                            <span className="text-[10px] text-slate-400 uppercase font-mono">
+                              {tema.id}
+                            </span>
+                          </div>
+                          <h5 className={`font-semibold text-xs leading-snug ${isChecked ? 'text-indigo-950 font-bold' : 'text-slate-800'}`}>
+                            {tema.judul}
+                          </h5>
+                          <p className="text-[11px] text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                            {tema.capaianPembelajaran}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Textareas for Customizing Topic and Learning Objectives */}
+              <div className="pt-2 border-t border-slate-200 space-y-3">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Topik atau Materi yang Diinginkan (Otomatis menyesuaikan tema terpilih):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formState.topikMateri}
+                    onChange={(e) => setFormState({ ...formState, topikMateri: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-white"
+                    placeholder="Materi yang diujikan..."
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Tujuan Pembelajaran (TP) / Indikator Capaian:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formState.tujuanPembelajaran}
+                    onChange={(e) => setFormState({ ...formState, tujuanPembelajaran: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-white"
+                    placeholder="Tujuan Pembelajaran yang ditargetkan..."
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -563,82 +877,90 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Opsi Soal Bergambar & Jumlah Soal Bergambar */}
-            <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-white p-3 rounded-lg border">
-              <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 select-none">
-                <input
-                  type="checkbox"
-                  checked={formState.soalBergambarEnabled}
-                  onChange={(e) => setFormState({ ...formState, soalBergambarEnabled: e.target.checked })}
-                  className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                />
-                <span className="flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-emerald-600" />
-                  Sertakan Butir Soal Bergambar (Peta, Kurva, Diagram, Infografik)
-                </span>
-              </label>
-
-              {formState.soalBergambarEnabled && (
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-600 font-medium">Jumlah Soal Bergambar:</span>
+            {/* Opsi Soal Bergambar (Aktif & Berfungsi Penuh) */}
+            <div className="pt-3 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-indigo-200">
+                <label className="flex items-start gap-2.5 cursor-pointer">
                   <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={formState.jumlahSoalBergambar}
-                    onChange={(e) => setFormState({ ...formState, jumlahSoalBergambar: Number(e.target.value) || 1 })}
-                    className="w-16 px-2 py-1 border border-indigo-300 rounded font-bold text-center text-indigo-900 bg-indigo-50/50"
+                    type="checkbox"
+                    checked={formState.soalBergambarEnabled}
+                    onChange={(e) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        soalBergambarEnabled: e.target.checked
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
                   />
-                  <span className="text-slate-500 font-semibold">Butir Soal</span>
-                </div>
-              )}
-            </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-indigo-600" />
+                      Sertakan Butir Soal Bergambar (Peta, Kurva Pasar, Bagan Pelaku Ekonomi, Piramida Penduduk)
+                    </span>
+                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                      Gambar otomatis muncul pada butir soal dan 100% ikut terunduh dalam file PDF &amp; dokumen Word (.doc).
+                    </span>
+                  </div>
+                </label>
 
-            {formState.soalBergambarEnabled && (
-              <div className="bg-white p-3 rounded-lg border border-slate-200">
-                <span className="text-[11px] font-bold text-slate-700 block mb-2">
-                  Koleksi Ilustrasi Grafis Edukatif Siap Pakai (Otomatis Disematkan):
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-                  {(Object.values(EDUCATIONAL_IMAGES) as EducationalImageItem[]).map((img) => (
-                    <div key={img.id} className="border border-slate-200 rounded p-1 text-center bg-slate-50 hover:bg-indigo-50 transition-colors">
-                      <img src={img.dataUri} alt={img.title} className="h-12 w-full object-contain mx-auto bg-white rounded border border-slate-100" />
-                      <span className="text-[9px] font-semibold text-slate-700 line-clamp-1 block mt-1">
-                        {img.title.split('(')[0]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {formState.soalBergambarEnabled && (
+                  <div className="flex items-center gap-2 text-xs flex-shrink-0">
+                    <span className="font-semibold text-slate-700">Jumlah Soal Bergambar:</span>
+                    <select
+                      value={formState.jumlahSoalBergambar}
+                      onChange={(e) =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          jumlahSoalBergambar: Number(e.target.value)
+                        }))
+                      }
+                      className="px-2.5 py-1.5 border border-indigo-300 bg-indigo-50/50 rounded-lg font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                    >
+                      <option value={1}>1 Soal Bergambar</option>
+                      <option value={2}>2 Soal Bergambar</option>
+                      <option value={3}>3 Soal Bergambar</option>
+                      <option value={4}>4 Soal Bergambar</option>
+                      <option value={5}>5 Soal Bergambar</option>
+                      <option value={6}>6 Soal Bergambar</option>
+                    </select>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Modal Footer: Generate & Reset Actions */}
+        {/* Modal Footer Bar */}
         <div className="bg-slate-100 border-t border-slate-200 p-4 sm:px-6 flex flex-wrap items-center justify-between gap-3">
-          <button
-            onClick={onReset}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 rounded-lg border border-rose-300 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reset Soal & Formulir</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onReset}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 rounded-lg transition-colors shadow-2xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset Pengaturan Awal</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-200 border border-slate-300 rounded-lg transition-colors shadow-2xs"
             >
               Tutup
             </button>
 
             <button
               onClick={onGenerate}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-md shadow-indigo-300 transition-all disabled:opacity-50"
+              disabled={isGenerating || totalItems === 0}
+              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 rounded-lg transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>{isGenerating ? 'Menyusun Soal...' : `Buat Soal Kurikulum Merdeka (${totalItems} Butir)`}</span>
+              <Sparkles className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+              <span>
+                {isGenerating
+                  ? 'Memproses Paket Soal...'
+                  : `Generate & Buat ${totalItems} Soal (${selectedCount} Tema Terpilih)`}
+              </span>
             </button>
           </div>
         </div>

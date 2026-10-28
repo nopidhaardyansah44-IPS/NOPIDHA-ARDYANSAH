@@ -10,7 +10,7 @@ export type CognitiveLevel = 'LOTS' | 'MOTS' | 'HOTS';
 
 export type LearningExperience = 'Memahami' | 'Mengaplikasi' | 'Merefleksi';
 
-export type GradeLevel = '7' | '8' | '9';
+export type GradeLevel = '7' | '8' | '9' | 'Semua (7, 8, 9)';
 
 export interface SchoolProfile {
   logoUrl: string;
@@ -63,7 +63,8 @@ export interface QuestionTypeConfig {
 export interface GeneratorFormState {
   jenjang: 'SMP';
   kelas: GradeLevel;
-  temaId: string;
+  temaId: string; // tema utama / pertama untuk kompatibilitas
+  selectedTemaIds: string[]; // daftar ID tema yang dipilih (dapat memilih sebagian atau SEMUA tema kelas 7, 8, 9)
   topikMateri: string;
   tujuanPembelajaran: string;
   bentukSoalConfig: Record<QuestionType, QuestionTypeConfig>;

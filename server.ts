@@ -30,6 +30,7 @@ app.post('/api/generate-questions', async (req, res) => {
     const {
       kelas = '7',
       temaJudul = 'Tema 01: Keberadaan Diri dan Lingkungan Sekitar',
+      temaList = [],
       topikMateri = '',
       tujuanPembelajaran = '',
       bentukSoalList = ['pilihan_ganda'],
@@ -48,14 +49,20 @@ app.post('/api/generate-questions', async (req, res) => {
       });
     }
 
+    const temaDescription = Array.isArray(temaList) && temaList.length > 0
+      ? `Daftar Tema Terpilih (${temaList.length} Tema):\n` + temaList.map((t: any, idx: number) => `   ${idx + 1}. [Kelas ${t.kelas || kelas}] ${t.judul || t}`).join('\n')
+      : temaJudul;
+
     const promptText = `
 Anda adalah seorang Ahli Kurikulum Merdeka Kemendikbudristek dan Guru Penggerak Mata Pelajaran IPS SMP tingkat nasional.
 Buatlah paket butir soal Asesmen Sumatif/Formatif IPS SMP Kurikulum Merdeka yang HETEROGEN, MENDALAM, TIDAK MONOTON, dan BERKUALITAS TINGGI.
 
 Spesifikasi Pembuatan Soal:
-1. Jenjang: SMP Kelas ${kelas}
-2. Tema Kurikulum: ${temaJudul}
-3. Topik / Materi Spesifik: ${topikMateri || 'Materi inti Kurikulum Merdeka IPS Kelas ' + kelas}
+1. Jenjang: SMP (Tingkat Kelas: ${kelas})
+2. Pilihan Tema Kurikulum Merdeka:
+${temaDescription}
+PENTING: Jika pengguna memilih banyak tema atau seluruh tema (Kelas 7, 8, dan 9), distribusikan butir-butir soal secara proporsional dan merata ke seluruh tema tersebut. Setiap butir soal harus mencantumkan materi, capaian pembelajaran, dan buku sumber yang sesuai dengan temanya.
+3. Topik / Materi Spesifik: ${topikMateri || 'Materi inti Kurikulum Merdeka IPS'}
 4. Tujuan Pembelajaran (TP): ${tujuanPembelajaran || 'Menganalisis fenomena keruangan, interaksi sosial, aktivitas ekonomi, dan sejarah lokal/nasional.'}
 5. Bentuk Soal yang diminta: ${bentukSoalList.join(', ')}
 6. Jumlah Soal yang diminta per bentuk: ${JSON.stringify(totalSoalPerBentuk)}

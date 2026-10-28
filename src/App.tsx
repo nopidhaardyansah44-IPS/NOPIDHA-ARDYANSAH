@@ -115,8 +115,9 @@ export default function App() {
     jenjang: 'SMP',
     kelas: '7',
     temaId: 'k7-t1',
-    topikMateri: 'Tema 01: Keberadaan Diri dan Keluarga di Tengah Lingkungan Sosial',
-    tujuanPembelajaran: 'Menjelaskan proses sosialisasi dalam keluarga dan menganalisis pengaruh interaksi sosial.',
+    selectedTemaIds: ['k7-t1', 'k7-t2', 'k7-t3', 'k7-t4'],
+    topikMateri: 'Tema 01 s.d. 04: Kurikulum Merdeka IPS SMP Kelas 7',
+    tujuanPembelajaran: 'Menjelaskan proses sosialisasi, keberagaman lingkungan alam, aktivitas ekonomi, dan pemberdayaan masyarakat.',
     bentukSoalConfig: {
       pilihan_ganda: { enabled: true, count: 5 },
       pilihan_ganda_kompleks: { enabled: true, count: 5 },
@@ -156,8 +157,9 @@ export default function App() {
         jenjang: 'SMP',
         kelas: '7',
         temaId: 'k7-t1',
-        topikMateri: 'Tema 01: Keberadaan Diri dan Keluarga di Tengah Lingkungan Sosial',
-        tujuanPembelajaran: 'Menjelaskan proses sosialisasi dalam keluarga dan menganalisis pengaruh interaksi sosial.',
+        selectedTemaIds: ['k7-t1', 'k7-t2', 'k7-t3', 'k7-t4'],
+        topikMateri: 'Tema 01 s.d. 04: Kurikulum Merdeka IPS SMP Kelas 7',
+        tujuanPembelajaran: 'Menjelaskan proses sosialisasi, keberagaman lingkungan alam, aktivitas ekonomi, dan pemberdayaan masyarakat.',
         bentukSoalConfig: {
           pilihan_ganda: { enabled: true, count: 5 },
           pilihan_ganda_kompleks: { enabled: true, count: 5 },
